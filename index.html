@@ -1014,7 +1014,7 @@ if (!SR) {
 } else {
   state.recognition = new SR();
   state.recognition.lang = 'en-US';
-  state.recognition.continuous = false;
+  state.recognition.continuous = true;   // stay open until user taps to send
   state.recognition.interimResults = true;
   state.recognition.maxAlternatives = 1;
 }
@@ -1157,7 +1157,7 @@ async function speak(text){
     const u = new SpeechSynthesisUtterance(text);
     if (state.selectedVoice) u.voice = state.selectedVoice;
     u.lang = 'en-US';
-    u.rate = 0.98;
+    u.rate = 0.91;   // 7% slower than default for non-native learner — natural breathing room
     u.pitch = 1.0;
     u.volume = 1.0;
     let resolved = false;
@@ -1213,27 +1213,20 @@ async function startListening(){
     return;
   }
 
-  if (!state.micPermissionRequested) {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(t => t.stop());
-      state.micPermissionRequested = true;
-    } catch (err) {
-      setStatus('Microfone bloqueado. Verifique permissões.', 'error');
-      console.error('Mic permission error:', err);
-      return;
-    }
-  }
+  // NOTE: We intentionally do NOT call getUserMedia first.
+  // SpeechRecognition.start() triggers its own permission prompt on Android,
+  // and pre-checking with getUserMedia can interfere with it.
 
   recognitionFinalText = '';
   interimId = 'interim_' + Date.now();
   addTurn('user', '…', { id: interimId, interim: true });
 
   state.recognizing = true;
+  state.userIntentToStop = false;
   micBtn.classList.add('recording');
-  micLabel.textContent = 'Tap to send';
+  micLabel.textContent = 'Tap when done';
   setSpeaker('user');
-  setStatus('Listening in English… speak now.');
+  setStatus('Listening… take your time. Tap mic to send.');
 
   try {
     state.recognition.start();
@@ -1253,13 +1246,16 @@ async function startListening(){
 
 function stopListening(){
   if (!state.recognizing) return;
+  state.userIntentToStop = true;
   try { state.recognition.stop(); } catch(e){ console.warn('stop failed:', e); }
 }
 
 function cancelListening(){
   if (!state.recognizing) return;
+  state.userIntentToStop = true;
   try { state.recognition.abort(); } catch(e){}
   state.recognizing = false;
+  state.userIntentToStop = false;
   micBtn.classList.remove('recording');
   micLabel.textContent = 'Click to Speak';
   setSpeaker(null);
@@ -1285,29 +1281,65 @@ if (state.recognition) {
   };
   state.recognition.onerror = (evt) => {
     console.error('recognition error:', evt.error);
+
+    // 'no-speech' in continuous mode = user paused but didn't speak yet — DON'T treat as fatal
+    // We let onend auto-restart silently so the user can keep thinking
+    if (evt.error === 'no-speech' && state.recognizing && !state.userIntentToStop) {
+      console.log('no-speech ignored, will let onend auto-restart');
+      return;
+    }
+    // 'aborted' is fired when WE called stop() — also not fatal
+    if (evt.error === 'aborted') {
+      return;
+    }
+
     state.recognizing = false;
+    state.userIntentToStop = false;
     micBtn.classList.remove('recording');
     micLabel.textContent = 'Click to Speak';
     setSpeaker(null);
     if (evt.error === 'no-speech') {
-      setStatus('Não ouvi nada. Toque o mic e fale.', 'error');
+      // only reaches here if userIntentToStop was true — silence on user-initiated stop
       if (interimId) {
         const el = document.getElementById(interimId);
         if (el) el.remove();
         interimId = null;
       }
-    } else if (evt.error === 'not-allowed') {
-      setStatus('Microfone bloqueado.', 'error');
+    } else if (evt.error === 'not-allowed' || evt.error === 'service-not-allowed') {
+      setStatus('Microfone negado. Toque o cadeado na URL → Permissões → Microfone → Permitir.', 'error');
     } else if (evt.error === 'audio-capture') {
-      setStatus('Não consegui acessar o microfone.', 'error');
+      setStatus('Não consegui acessar o microfone (hardware).', 'error');
     } else if (evt.error === 'network') {
-      setStatus('Erro de rede no reconhecimento.', 'error');
+      setStatus('Erro de rede no reconhecimento de voz.', 'error');
     } else {
       setStatus('Erro: ' + evt.error, 'error');
     }
   };
   state.recognition.onend = async () => {
+    // CRITICAL: if user didn't explicitly stop, ALWAYS restart.
+    // Chrome on Android closes the recognition session on every silence gap.
+    // We want it to behave like a continuous mic until the user taps to send.
+    if (state.recognizing && !state.userIntentToStop) {
+      console.log('recognition ended (silence/timeout) — auto-restarting to wait for more');
+      // small delay to avoid tight restart loops on some devices
+      setTimeout(() => {
+        if (!state.recognizing || state.userIntentToStop) return;
+        try {
+          state.recognition.start();
+        } catch(e) {
+          console.warn('auto-restart failed, will retry once:', e);
+          setTimeout(() => {
+            if (!state.recognizing || state.userIntentToStop) return;
+            try { state.recognition.start(); } catch(e2) { console.error('auto-restart 2nd attempt failed:', e2); }
+          }, 250);
+        }
+      }, 100);
+      return;
+    }
+
+    // User explicitly stopped: finalize and send
     state.recognizing = false;
+    state.userIntentToStop = false;
     micBtn.classList.remove('recording');
     micLabel.textContent = 'Click to Speak';
     const finalText = recognitionFinalText.trim();
@@ -1318,6 +1350,7 @@ if (state.recognition) {
         interimId = null;
       }
       setSpeaker(null);
+      setStatus('Nada capturado. Toque o mic e fale.');
       return;
     }
     if (interimId) {
@@ -1392,7 +1425,12 @@ Scoring labels: Tiro (0-49) = recruta, fundação ainda frágil; Proficiens (50-
 
 Be honest, not generous. She is preparing for CDAO-level rooms. Vague praise harms her.
 
-Return strict JSON matching the schema. Strengths, improvements and next_step MUST be in PORTUGUESE (pt-BR). Verdict in PORTUGUESE.`;
+Return strict JSON matching the schema.
+- ALL textual fields (verdict, strengths items, improvements items, next_step) MUST be in PORTUGUESE (pt-BR).
+- Each "strengths" / "improvements" item: 1 sentence, MAX 25 words. 3 items each, no more.
+- "verdict": 1 sentence, max 20 words.
+- "next_step": 1-2 sentences, max 35 words. Concrete and actionable.
+- Use straight ASCII quotes only inside strings. No newlines, tabs, or control characters inside string values.`;
 
   const responseSchema = {
     type: "object",
@@ -1429,7 +1467,8 @@ Return strict JSON matching the schema. Strengths, improvements and next_step MU
       responseMimeType: "application/json",
       responseSchema: responseSchema,
       temperature: 0.4,
-      maxOutputTokens: 1500
+      maxOutputTokens: 3000,
+      thinkingConfig: { thinkingBudget: 0 }
     }
   };
 
@@ -1449,13 +1488,74 @@ Return strict JSON matching the schema. Strengths, improvements and next_step MU
     }
     const data = await resp.json();
     const text = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
-    const debrief = JSON.parse(text);
+    const finishReason = data.candidates?.[0]?.finishReason;
+    console.log('Debrief finish reason:', finishReason, 'length:', text.length);
+
+    let debrief;
+    try {
+      debrief = JSON.parse(text);
+    } catch(parseErr) {
+      console.warn('Initial JSON parse failed, attempting repair:', parseErr.message);
+      console.log('Raw text:', text);
+      debrief = repairAndParseJson(text);
+      if (!debrief) {
+        throw new Error('JSON inválido. Resposta foi cortada (finishReason: ' + finishReason + '). Tente novamente.');
+      }
+    }
     renderDebrief(debrief);
     setStatus('');
   } catch (err) {
     console.error(err);
     setStatus('Erro no debrief: ' + err.message, 'error');
   }
+}
+
+// Try to recover a truncated JSON by closing open structures
+function repairAndParseJson(text){
+  if (!text) return null;
+  // First try: trim trailing junk and re-parse
+  let attempts = [text];
+
+  // If string ends mid-string, close it
+  // Count unescaped quotes
+  let inString = false;
+  let escape = false;
+  let openBraces = 0, openBrackets = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (escape) { escape = false; continue; }
+    if (c === '\\') { escape = true; continue; }
+    if (c === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (c === '{') openBraces++;
+    else if (c === '}') openBraces--;
+    else if (c === '[') openBrackets++;
+    else if (c === ']') openBrackets--;
+  }
+
+  // Build a repaired version: close string, close arrays, close objects
+  let repaired = text;
+  if (inString) repaired += '"';
+  // Remove trailing comma if any (after possibly closing a string)
+  repaired = repaired.replace(/,\s*$/, '');
+  while (openBrackets-- > 0) repaired += ']';
+  while (openBraces-- > 0) repaired += '}';
+  attempts.push(repaired);
+
+  // Also try truncating to last complete top-level field
+  const lastClosingBrace = text.lastIndexOf('}');
+  if (lastClosingBrace > 0) {
+    attempts.push(text.slice(0, lastClosingBrace + 1));
+  }
+
+  for (const attempt of attempts) {
+    try {
+      const parsed = JSON.parse(attempt);
+      console.log('JSON repair succeeded with attempt length', attempt.length);
+      return parsed;
+    } catch(e) { /* try next */ }
+  }
+  return null;
 }
 
 function renderDebrief(d){
