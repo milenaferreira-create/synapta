@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#0e0d0b" />
+<title>LEAP — Mission 01</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0e0d0b;
+    --bg-2: #161412;
+    --ink: #f4ede0;
+    --ink-dim: #b6ac99;
+    --ink-faint: #6e6657;
+    --accent: #c9a35a;
+    --accent-warm: #e6b974;
+    --line: #2a2722;
+    --line-2: #3a352d;
+    --user: #7fb6c9;
+    --danger: #c96d5a;
+    --ok: #8aa770;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html, body { height: 100%; }
+  body{
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body::before{
+    content:'';
+    position: fixed; inset: 0;
+    background-image:
+      radial-gradient(ellipse at 15% 10%, rgba(201,163,90,0.08), transparent 50%),
+      radial-gradient(ellipse at 85% 90%, rgba(127,182,201,0.05), transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after{
+    content:'';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.95 0 0 0 0 0.93 0 0 0 0 0.87 0 0 0 0.04 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.6;
+    pointer-events: none;
+    z-index: 1;
+    mix-blend-mode: overlay;
+  }
+
+  .wrap{
+    position: relative;
+    z-index: 2;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 24px 20px 80px;
+  }
+
+  /* Top bar */
+  .topbar{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 22px;
+    gap: 12px;
+  }
+  .brand{
+    display: flex; align-items: baseline; gap: 12px;
+    flex-wrap: wrap;
+  }
+  .brand .logo{
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 20px;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+  }
+  .brand .logo span{ color: var(--accent); }
+  .brand .tag{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--ink-faint);
+    border-left: 1px solid var(--line-2);
+    padding-left: 12px;
+  }
+  .top-actions{
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .icon-btn{
+    background: transparent;
+    border: 1px solid var(--line-2);
+    color: var(--ink-dim);
+    padding: 8px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s;
+  }
+  .icon-btn:hover, .icon-btn:active{
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  @media (max-width: 540px){
+    .brand .tag{ display:none; }
+    .topbar{ padding-bottom: 14px; margin-bottom: 18px; }
+  }
+
+  /* Mission card */
+  .mission{
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 32px;
+    padding: 24px 0 28px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 22px;
+  }
+  .mission-meta{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  .mission h1{
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: clamp(26px, 6vw, 40px);
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    margin-bottom: 16px;
+  }
+  .mission h1 em{
+    font-style: italic;
+    color: var(--accent-warm);
+    font-weight: 300;
+  }
+  .mission p.brief{
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--ink-dim);
+    max-width: 56ch;
+  }
+  .persona{
+    border-left: 1px solid var(--line-2);
+    padding-left: 24px;
+  }
+  .persona .label{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: var(--ink-faint);
+    margin-bottom: 10px;
+  }
+  .persona .name{
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .persona .role{
+    font-size: 12px;
+    color: var(--ink-dim);
+    margin-bottom: 12px;
+  }
+  .persona .traits{
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--ink-dim);
+    font-style: italic;
+  }
+  @media (max-width: 760px){
+    .mission{ grid-template-columns: 1fr; gap: 20px; padding: 20px 0 22px; }
+    .persona{ border-left: none; padding-left: 0; border-top: 1px solid var(--line); padding-top: 20px; }
+  }
+
+  /* Stage */
+  .stage{
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 28px 28px 22px;
+    position: relative;
+    min-height: 360px;
+    display: flex;
+    flex-direction: column;
+  }
+  .stage::before{
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.5;
+  }
+  @media (max-width: 540px){
+    .stage{ padding: 22px 18px 18px; }
+  }
+
+  .stage-header{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+    gap: 10px;
+  }
+  .speaker-now{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+  .pulse{
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--ink-faint);
+    transition: background 0.3s, box-shadow 0.3s;
+    flex-shrink: 0;
+  }
+  .pulse.sarah{
+    background: var(--accent);
+    box-shadow: 0 0 0 0 rgba(201,163,90,0.5);
+    animation: pulse-amber 1.4s infinite;
+  }
+  .pulse.user{
+    background: var(--user);
+    box-shadow: 0 0 0 0 rgba(127,182,201,0.5);
+    animation: pulse-blue 1.4s infinite;
+  }
+  @keyframes pulse-amber{
+    0%{box-shadow: 0 0 0 0 rgba(201,163,90,0.5);}
+    70%{box-shadow: 0 0 0 12px rgba(201,163,90,0);}
+    100%{box-shadow: 0 0 0 0 rgba(201,163,90,0);}
+  }
+  @keyframes pulse-blue{
+    0%{box-shadow: 0 0 0 0 rgba(127,182,201,0.5);}
+    70%{box-shadow: 0 0 0 12px rgba(127,182,201,0);}
+    100%{box-shadow: 0 0 0 0 rgba(127,182,201,0);}
+  }
+  .speaker-label{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--ink-dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .speaker-label b{ color: var(--ink); font-weight: 500; }
+  .turn-counter{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  /* Transcript */
+  .transcript{
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 6px;
+    margin-bottom: 22px;
+    max-height: 50vh;
+    min-height: 180px;
+  }
+  .transcript::-webkit-scrollbar{ width: 4px; }
+  .transcript::-webkit-scrollbar-track{ background: transparent; }
+  .transcript::-webkit-scrollbar-thumb{ background: var(--line-2); border-radius: 3px; }
+  .turn{
+    margin-bottom: 20px;
+    animation: fade-up 0.4s ease;
+  }
+  @keyframes fade-up{
+    from{ opacity: 0; transform: translateY(8px); }
+    to{ opacity: 1; transform: translateY(0); }
+  }
+  .turn .who{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    margin-bottom: 6px;
+  }
+  .turn.sarah .who{ color: var(--accent); }
+  .turn.user .who{ color: var(--user); }
+  .turn .text{
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    line-height: 1.5;
+    color: var(--ink);
+    font-weight: 400;
+  }
+  .turn.user .text{
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    color: var(--ink-dim);
+    font-style: italic;
+  }
+  .turn .text.interim{ opacity: 0.5; }
+
+  .empty-state{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    height: 100%;
+    min-height: 200px;
+    color: var(--ink-faint);
+    padding: 20px 0;
+  }
+  .empty-state .arrow{
+    font-family: 'Fraunces', serif;
+    font-size: 42px;
+    color: var(--accent);
+    margin-bottom: 16px;
+    opacity: 0.6;
+  }
+  .empty-state h2{
+    font-family: 'Fraunces', serif;
+    font-weight: 300;
+    font-size: 20px;
+    color: var(--ink);
+    margin-bottom: 10px;
+    font-style: italic;
+  }
+  .empty-state p{
+    font-size: 13px;
+    max-width: 38ch;
+    line-height: 1.6;
+  }
+
+  /* Controls */
+  .controls{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+  .mic-button{
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--ink);
+    padding: 14px 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+    min-height: 48px;
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+  .mic-button:active:not(:disabled){
+    transform: scale(0.98);
+  }
+  .mic-button:hover:not(:disabled){
+    background: var(--accent);
+    color: var(--bg);
+  }
+  .mic-button:disabled{
+    opacity: 0.3;
+    cursor: not-allowed;
+    border-color: var(--line-2);
+  }
+  .mic-button.recording{
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+    animation: rec-glow 1s infinite alternate;
+  }
+  @keyframes rec-glow{
+    from{ box-shadow: 0 0 0 0 rgba(201,163,90,0.4); }
+    to{ box-shadow: 0 0 0 8px rgba(201,163,90,0); }
+  }
+  .mic-icon{
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+  .secondary-btn{
+    background: transparent;
+    border: 1px solid var(--line-2);
+    color: var(--ink-dim);
+    padding: 12px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 2px;
+    min-height: 44px;
+  }
+  .secondary-btn:hover, .secondary-btn:active{
+    border-color: var(--ink-dim);
+    color: var(--ink);
+  }
+  .secondary-btn:disabled{ opacity: 0.3; cursor: not-allowed; }
+  .spacer{ flex: 1; }
+  .hint{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--ink-faint);
+    letter-spacing: 0.1em;
+    width: 100%;
+  }
+  .hint b{ color: var(--ink-dim); font-weight: 500; }
+
+  /* Status */
+  .status-bar{
+    margin-top: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--ink-faint);
+    min-height: 14px;
+    word-break: break-word;
+  }
+  .status-bar.error{ color: var(--danger); }
+  .status-bar.thinking{ color: var(--accent); }
+  .status-bar.ok{ color: var(--ok); }
+
+  /* Voice select */
+  .voice-row{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--ink-faint);
+    flex-wrap: wrap;
+  }
+  .voice-row select{
+    background: var(--bg);
+    color: var(--ink-dim);
+    border: 1px solid var(--line-2);
+    padding: 6px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    border-radius: 2px;
+    cursor: pointer;
+    flex: 1;
+    min-width: 140px;
+  }
+
+  /* Setup overlay (API key) */
+  .setup-overlay{
+    position: fixed; inset: 0;
+    background: rgba(14,13,11,0.95);
+    backdrop-filter: blur(8px);
+    z-index: 200;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 40px 20px;
+    overflow-y: auto;
+  }
+  .setup-overlay.hidden{ display: none; }
+  .setup{
+    background: var(--bg-2);
+    border: 1px solid var(--line-2);
+    max-width: 540px;
+    width: 100%;
+    padding: 36px 32px;
+    border-radius: 4px;
+    position: relative;
+  }
+  .setup::before{
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+  .setup .label{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.24em;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  .setup h2{
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 28px;
+    line-height: 1.15;
+    margin-bottom: 16px;
+  }
+  .setup h2 em{
+    font-style: italic;
+    color: var(--accent-warm);
+  }
+  .setup p.exp{
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--ink-dim);
+    margin-bottom: 22px;
+  }
+  .setup p.exp a{
+    color: var(--accent-warm);
+    text-decoration: underline;
+  }
+  .setup label{
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--ink-faint);
+    margin-bottom: 8px;
+  }
+  .setup input{
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--line-2);
+    color: var(--ink);
+    padding: 14px 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    border-radius: 2px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .setup input:focus{ border-color: var(--accent); }
+  .setup .actions{
+    display: flex;
+    gap: 12px;
+    margin-top: 22px;
+    flex-wrap: wrap;
+  }
+  .setup .privacy{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--ink-faint);
+    letter-spacing: 0.14em;
+    margin-top: 18px;
+    line-height: 1.7;
+  }
+
+  /* Debrief modal */
+  .debrief-overlay{
+    position: fixed; inset: 0;
+    background: rgba(14,13,11,0.92);
+    backdrop-filter: blur(8px);
+    z-index: 100;
+    display: none;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 40px 20px;
+    overflow-y: auto;
+    animation: fade-in 0.3s;
+  }
+  .debrief-overlay.show{ display: flex; }
+  @keyframes fade-in{
+    from{ opacity: 0; }
+    to{ opacity: 1; }
+  }
+  .debrief{
+    background: var(--bg-2);
+    border: 1px solid var(--line-2);
+    max-width: 760px;
+    width: 100%;
+    padding: 40px 36px;
+    position: relative;
+    border-radius: 4px;
+  }
+  .debrief::before{
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+  .debrief .label{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.24em;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  .debrief h2{
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: clamp(24px, 5vw, 34px);
+    line-height: 1.1;
+    margin-bottom: 8px;
+  }
+  .debrief h2 em{
+    font-style: italic;
+    color: var(--accent-warm);
+  }
+  .debrief .verdict{
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 17px;
+    color: var(--ink-dim);
+    margin-bottom: 28px;
+    padding-bottom: 22px;
+    border-bottom: 1px solid var(--line);
+    line-height: 1.55;
+  }
+  .scores{
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  @media (max-width: 540px){
+    .scores{ grid-template-columns: 1fr; }
+    .debrief{ padding: 28px 22px; }
+  }
+  .score{
+    border: 1px solid var(--line);
+    padding: 18px 16px;
+    border-radius: 2px;
+  }
+  .score .dim{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--ink-faint);
+    margin-bottom: 8px;
+  }
+  .score .val{
+    font-family: 'Fraunces', serif;
+    font-size: 38px;
+    font-weight: 400;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .score .val small{ font-size: 16px; color: var(--ink-faint); }
+  .score .verbal{
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--ink-dim);
+    margin-top: 6px;
+  }
+  .feedback-block{
+    margin-bottom: 24px;
+  }
+  .feedback-block h3{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: var(--ink-faint);
+    margin-bottom: 12px;
+  }
+  .feedback-block p, .feedback-block li{
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--ink);
+  }
+  .feedback-block ul{ list-style: none; padding: 0; }
+  .feedback-block li{
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--line);
+    padding-left: 20px;
+    position: relative;
+  }
+  .feedback-block li:last-child{ border-bottom: none; }
+  .feedback-block li::before{
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-family: 'Fraunces', serif;
+  }
+  .debrief-actions{
+    display: flex; gap: 12px;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+</style>
+</head>
+<body>
+
+<!-- Setup overlay (asks for Gemini API key) -->
+<div class="setup-overlay" id="setupOverlay">
+  <div class="setup">
+    <div class="label">First-time setup</div>
+    <h2>Conecte sua chave <em>Gemini API</em>.</h2>
+    <p class="exp">A Sarah é movida pela API do Gemini. Pegue sua chave gratuita no <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>, cole abaixo e ela fica salva localmente no seu celular. Nunca sai do navegador.</p>
+    <label for="apiKeyInput">Gemini API Key</label>
+    <input type="password" id="apiKeyInput" placeholder="AIza..." autocomplete="off" spellcheck="false" />
+    <div class="actions">
+      <button class="mic-button" id="saveKeyBtn">
+        <span class="mic-icon"></span>
+        Salvar e começar
+      </button>
+    </div>
+    <p class="privacy">A chave é guardada em <b>localStorage</b> apenas no seu dispositivo. Nenhuma requisição passa por servidores intermediários — ela vai direto do seu navegador para a Google. Para apagar, use o botão "RESET KEY" no topo.</p>
+  </div>
+</div>
+
+<div class="wrap" id="appWrap">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">L<span>·</span>E<span>·</span>A<span>·</span>P</div>
+      <div class="tag">Leadership · English · Authority · Practice</div>
+    </div>
+    <div class="top-actions">
+      <button class="icon-btn" id="resetKeyBtn" title="Apagar chave">Reset Key</button>
+    </div>
+  </header>
+
+  <section class="mission">
+    <div>
+      <div class="mission-meta">Mission 01 · São Paulo · Live</div>
+      <h1>Sua primeira <em>impressão global</em>.</h1>
+      <p class="brief">Você acabou de entrar em uma sala de reunião em São Paulo. Ao seu lado está uma líder sênior de produto de uma empresa americana que você nunca conheceu. Ela se apresenta e pergunta quem você é.</p>
+    </div>
+    <aside class="persona">
+      <div class="label">Counterpart</div>
+      <div class="name">Sarah Chen</div>
+      <div class="role">Senior Product Director · US tech company</div>
+      <p class="traits">Warm but direct. Asks sharp follow-ups. Doesn't tolerate vague answers — will press if you hedge.</p>
+    </aside>
+  </section>
+
+  <section class="stage">
+    <div class="stage-header">
+      <div class="speaker-now">
+        <div class="pulse" id="pulse"></div>
+        <div class="speaker-label">Status: <b id="speakerLabel">Standby</b></div>
+      </div>
+      <div class="turn-counter" id="turnCounter">Turn 00</div>
+    </div>
+
+    <div class="transcript" id="transcript">
+      <div class="empty-state" id="emptyState">
+        <div class="arrow">⌒</div>
+        <h2>The room is quiet.</h2>
+        <p>Toque <b>Begin Mission</b>. A Sarah começa a conversa. Quando ela terminar, toque o microfone e fale em inglês.</p>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="mic-button" id="startBtn">
+        <span class="mic-icon"></span>
+        Begin Mission
+      </button>
+      <button class="mic-button" id="micBtn" disabled style="display:none;">
+        <span class="mic-icon"></span>
+        <span id="micLabel">Click to Speak</span>
+      </button>
+      <button class="secondary-btn" id="endBtn" disabled>End & Debrief</button>
+      <div class="spacer"></div>
+      <div class="hint">Toque o mic para falar · Toque novamente para enviar</div>
+    </div>
+
+    <div class="status-bar" id="status"></div>
+    <div class="voice-row">
+      <span>Sarah's Voice</span>
+      <select id="voiceSelect"></select>
+    </div>
+  </section>
+</div>
+
+<!-- Debrief Modal -->
+<div class="debrief-overlay" id="debriefOverlay">
+  <div class="debrief" id="debriefContent">
+    <div class="label">Mission Debrief</div>
+    <h2>Como você <em>se apresentou</em>.</h2>
+    <p class="verdict" id="verdict">—</p>
+
+    <div class="scores" id="scoresGrid"></div>
+
+    <div class="feedback-block">
+      <h3>O que funcionou</h3>
+      <ul id="strengths"></ul>
+    </div>
+
+    <div class="feedback-block">
+      <h3>O que melhorar</h3>
+      <ul id="improvements"></ul>
+    </div>
+
+    <div class="feedback-block">
+      <h3>Para a próxima reunião</h3>
+      <p id="nextStep"></p>
+    </div>
+
+    <div class="debrief-actions">
+      <button class="mic-button" id="retryBtn">
+        <span class="mic-icon"></span>
+        Run Mission Again
+      </button>
+      <button class="secondary-btn" id="closeBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// =====================================================================
+// LEAP — Standalone (Gemini Edition)
+// Runs 100% in your browser. Your Gemini key never leaves the device.
+// =====================================================================
+
+const MISSION = {
+  id: "leap_mission_1",
+  title: "Sua primeira impressão global",
+  description: "Você acabou de entrar em uma sala de reunião em São Paulo. Ao seu lado está uma líder sênior de produto de uma empresa americana que você nunca conheceu. Ela se apresenta e pergunta quem você é.",
+  target_language: "English",
+  native_language: "Portuguese",
+  ai_persona: {
+    name: "Sarah Chen",
+    role: "Senior Product Director at a US tech company",
+    personality: "Warm but direct. She asks sharp follow-up questions. She genuinely wants to understand what you do and why it matters. She does not tolerate vague answers — she will ask 'can you be more specific?' if you hedge."
+  },
+  roleplay_instruction: "You are Sarah Chen, a Senior Product Director visiting São Paulo for a leadership summit. You have just met the user in a meeting room. Start by introducing yourself briefly and asking who she is. Then ask at least two genuine follow-up questions about her work — go beyond surface level. React naturally to what she says: if she uses hedging language like 'I think maybe' or 'kind of', gently press for more precision. If she speaks with authority and clarity, acknowledge it.",
+  interaction_guidelines: "Speak only in English. Do not switch to Portuguese under any circumstance. If the user speaks Portuguese, respond in English and encourage her to continue in English. Be a realistic conversation partner — not overly enthusiastic, not cold. Pause naturally. Ask one question at a time. Do not lecture or teach grammar. React as a real professional would.",
+  mission_completion: "The mission is complete when the user has: (1) introduced herself clearly with her name, role and company, (2) communicated at least one concrete thing she does or has achieved, (3) responded to at least one follow-up question without excessive hedging."
+};
+
+const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+const STORAGE_KEY = 'leap_gemini_api_key_v1';
+
+// ----- DOM -----
+const $ = id => document.getElementById(id);
+const transcriptEl = $('transcript');
+const emptyEl = $('emptyState');
+const startBtn = $('startBtn');
+const micBtn = $('micBtn');
+const endBtn = $('endBtn');
+const micLabel = $('micLabel');
+const statusEl = $('status');
+const pulseEl = $('pulse');
+const speakerLabel = $('speakerLabel');
+const turnCounterEl = $('turnCounter');
+const voiceSelect = $('voiceSelect');
+const setupOverlay = $('setupOverlay');
+const apiKeyInput = $('apiKeyInput');
+const saveKeyBtn = $('saveKeyBtn');
+const resetKeyBtn = $('resetKeyBtn');
+
+// ----- State -----
+const state = {
+  apiKey: null,
+  history: [],
+  turnCount: 0,
+  recognition: null,
+  recognizing: false,
+  speaking: false,
+  selectedVoice: null,
+  voices: [],
+  ended: false,
+  thinking: false,
+  micPermissionRequested: false,
+};
+
+// ----- API Key flow -----
+function loadKey(){
+  try {
+    state.apiKey = localStorage.getItem(STORAGE_KEY);
+  } catch(e){ state.apiKey = null; }
+  if (state.apiKey) {
+    setupOverlay.classList.add('hidden');
+  } else {
+    setupOverlay.classList.remove('hidden');
+  }
+}
+saveKeyBtn.addEventListener('click', () => {
+  const k = apiKeyInput.value.trim();
+  if (!k || !k.startsWith('AIza')) {
+    apiKeyInput.style.borderColor = 'var(--danger)';
+    apiKeyInput.placeholder = 'Chave inválida — precisa começar com AIza...';
+    apiKeyInput.value = '';
+    return;
+  }
+  try { localStorage.setItem(STORAGE_KEY, k); } catch(e){}
+  state.apiKey = k;
+  setupOverlay.classList.add('hidden');
+});
+apiKeyInput.addEventListener('keypress', e => {
+  if (e.key === 'Enter') saveKeyBtn.click();
+});
+resetKeyBtn.addEventListener('click', () => {
+  if (confirm('Apagar a chave da API e começar do zero?')) {
+    try { localStorage.removeItem(STORAGE_KEY); } catch(e){}
+    location.reload();
+  }
+});
+
+loadKey();
+
+// ----- Voice setup -----
+const TTS = ('speechSynthesis' in window) ? window.speechSynthesis : null;
+
+function pickBestVoice(enVoices){
+  const preferOrder = ['Samantha', 'Jenny', 'Aria', 'Ava', 'Allison', 'Joanna', 'Salli', 'Karen', 'Microsoft Aria', 'Google US English', 'Microsoft Zira'];
+  let chosen = null;
+  for (const name of preferOrder) {
+    chosen = enVoices.find(v => v.name && v.name.includes(name));
+    if (chosen) break;
+  }
+  if (!chosen) chosen = enVoices.find(v => v.lang === 'en-US') || enVoices[0];
+  return chosen;
+}
+
+function loadVoices(){
+  if (!TTS) {
+    voiceSelect.innerHTML = '<option>Síntese de voz indisponível</option>';
+    voiceSelect.disabled = true;
+    return;
+  }
+  const all = TTS.getVoices();
+  const enVoices = all.filter(v => v.lang && v.lang.startsWith('en'));
+  state.voices = enVoices;
+
+  voiceSelect.innerHTML = '';
+  if (enVoices.length === 0) {
+    const opt = document.createElement('option');
+    opt.textContent = 'Carregando vozes…';
+    voiceSelect.appendChild(opt);
+    return;
+  }
+  voiceSelect.disabled = false;
+  enVoices.forEach((v, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = `${v.name} · ${v.lang}`;
+    voiceSelect.appendChild(opt);
+  });
+
+  const chosen = pickBestVoice(enVoices);
+  if (chosen) {
+    state.selectedVoice = chosen;
+    voiceSelect.value = enVoices.indexOf(chosen);
+  }
+}
+
+async function ensureVoicesReady(maxWaitMs = 3000){
+  if (!TTS) return false;
+  if (state.voices && state.voices.length) return true;
+  loadVoices();
+  if (state.voices && state.voices.length) return true;
+  return new Promise(resolve => {
+    let elapsed = 0;
+    const interval = 100;
+    const timer = setInterval(() => {
+      loadVoices();
+      if (state.voices && state.voices.length) {
+        clearInterval(timer);
+        resolve(true);
+        return;
+      }
+      elapsed += interval;
+      if (elapsed >= maxWaitMs) {
+        clearInterval(timer);
+        resolve(false);
+      }
+    }, interval);
+  });
+}
+
+if (TTS) {
+  try { TTS.onvoiceschanged = loadVoices; } catch(e) {}
+  loadVoices();
+}
+
+voiceSelect.addEventListener('change', () => {
+  if (state.voices && state.voices.length) {
+    state.selectedVoice = state.voices[parseInt(voiceSelect.value)];
+  }
+});
+
+// ----- Speech recognition setup -----
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (!SR) {
+  setStatus("Reconhecimento de voz não suportado neste navegador. Use Chrome.", 'error');
+  startBtn.disabled = true;
+} else {
+  state.recognition = new SR();
+  state.recognition.lang = 'en-US';
+  state.recognition.continuous = false;
+  state.recognition.interimResults = true;
+  state.recognition.maxAlternatives = 1;
+}
+
+// ----- UI helpers -----
+function setStatus(msg, type=''){
+  statusEl.textContent = msg;
+  statusEl.className = 'status-bar' + (type ? ' '+type : '');
+}
+function setSpeaker(who){
+  pulseEl.className = 'pulse' + (who ? ' '+who : '');
+  if (who === 'sarah') speakerLabel.textContent = 'Sarah speaking';
+  else if (who === 'user') speakerLabel.textContent = 'You speaking';
+  else if (state.thinking) speakerLabel.textContent = 'Sarah thinking';
+  else speakerLabel.textContent = state.history.length ? 'Your turn' : 'Standby';
+}
+function bumpTurn(){
+  state.turnCount++;
+  turnCounterEl.textContent = 'Turn ' + String(state.turnCount).padStart(2,'0');
+}
+function addTurn(who, text, opts={}){
+  if (emptyEl && emptyEl.parentNode) { emptyEl.remove(); }
+  const div = document.createElement('div');
+  div.className = 'turn ' + who;
+  if (opts.id) div.id = opts.id;
+  div.innerHTML = `<div class="who">${who === 'sarah' ? 'Sarah Chen' : 'You'}</div><div class="text${opts.interim ? ' interim' : ''}">${escapeHtml(text)}</div>`;
+  transcriptEl.appendChild(div);
+  transcriptEl.scrollTop = transcriptEl.scrollHeight;
+  return div;
+}
+function updateInterim(id, text){
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.querySelector('.text').textContent = text;
+  transcriptEl.scrollTop = transcriptEl.scrollHeight;
+}
+function finalizeInterim(id, finalText){
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.removeAttribute('id');
+  const txt = el.querySelector('.text');
+  txt.textContent = finalText;
+  txt.classList.remove('interim');
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ----- Gemini call: Sarah -----
+async function callSarah(){
+  state.thinking = true;
+  setSpeaker(null);
+  setStatus('Sarah is composing her response…', 'thinking');
+
+  const systemInstruction = `${MISSION.roleplay_instruction}
+
+${MISSION.interaction_guidelines}
+
+CRITICAL OUTPUT RULES:
+- Respond ONLY with what Sarah would say out loud. No stage directions. No quotation marks around the line. No "Sarah:" prefix.
+- Keep responses to 1-3 sentences. This is spoken conversation, not writing.
+- Sound natural — contractions, brief pauses ("..."), reactive phrases like "Got it." or "Interesting."
+- One question at a time, max.
+- Never break character. Never explain you are an AI.
+- If the user has clearly: (a) introduced herself with name + role + company, (b) said something concrete about her work, (c) responded to at least one follow-up without excessive hedging — then wrap up the conversation gracefully (e.g., "It was great to meet you. Let's stay in touch.") and on a NEW LINE add the literal token: [MISSION_COMPLETE]
+- Do not add [MISSION_COMPLETE] before all three criteria are clearly met.`;
+
+  // Convert history → Gemini "contents" format. role: "user" or "model".
+  const contents = state.history.length === 0
+    ? [{ role: 'user', parts: [{ text: '[Begin the scene. Introduce yourself and ask who I am.]' }] }]
+    : state.history.map(t => ({
+        role: t.role === 'sarah' ? 'model' : 'user',
+        parts: [{ text: t.text }]
+      }));
+
+  // If last entry is from "model" (sarah), Gemini needs a user turn after — shouldn't happen but guard anyway
+  if (contents.length && contents[contents.length-1].role === 'model') {
+    contents.push({ role: 'user', parts: [{ text: '[continue]' }] });
+  }
+
+  const body = {
+    systemInstruction: { parts: [{ text: systemInstruction }] },
+    contents,
+    generationConfig: {
+      temperature: 0.85,
+      maxOutputTokens: 300,
+      thinkingConfig: { thinkingBudget: 0 } // disable thinking for faster turn-taking
+    }
+  };
+
+  try {
+    const url = `${GEMINI_BASE}/${GEMINI_MODEL}:generateContent`;
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": state.apiKey
+      },
+      body: JSON.stringify(body)
+    });
+    if (!resp.ok) {
+      const errText = await resp.text();
+      console.error('Gemini error', resp.status, errText);
+      throw new Error('API ' + resp.status + ' — ' + errText.slice(0,200));
+    }
+    const data = await resp.json();
+    let text = '';
+    try {
+      text = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join(' ') || '';
+    } catch(e){ text = ''; }
+    text = text.trim();
+
+    let missionComplete = false;
+    if (text.includes('[MISSION_COMPLETE]')) {
+      missionComplete = true;
+      text = text.replace('[MISSION_COMPLETE]', '').trim();
+    }
+    state.thinking = false;
+    setStatus('');
+    return { text, missionComplete };
+  } catch (err) {
+    state.thinking = false;
+    setStatus('Erro: ' + err.message, 'error');
+    return { text: "Sorry — could you say that again?", missionComplete: false };
+  }
+}
+
+// ----- Speak (TTS) -----
+async function speak(text){
+  if (!text) return;
+  if (!TTS) {
+    setSpeaker('sarah');
+    const ms = Math.min(6000, Math.max(1200, text.length * 45));
+    await new Promise(r => setTimeout(r, ms));
+    setSpeaker(null);
+    return;
+  }
+  await ensureVoicesReady();
+  return new Promise((resolve) => {
+    const u = new SpeechSynthesisUtterance(text);
+    if (state.selectedVoice) u.voice = state.selectedVoice;
+    u.lang = 'en-US';
+    u.rate = 0.98;
+    u.pitch = 1.0;
+    u.volume = 1.0;
+    let resolved = false;
+    const finish = () => { if (resolved) return; resolved = true; state.speaking = false; setSpeaker(null); resolve(); };
+    u.onstart = () => { state.speaking = true; setSpeaker('sarah'); };
+    u.onend = finish;
+    u.onerror = (e) => { console.warn('TTS error:', e); finish(); };
+    try {
+      TTS.cancel();
+      TTS.speak(u);
+      const fallbackMs = Math.min(20000, Math.max(3000, text.length * 90));
+      setTimeout(finish, fallbackMs);
+    } catch(e) {
+      console.warn('TTS speak failed:', e);
+      finish();
+    }
+  });
+}
+
+// ----- Sarah turn -----
+async function sarahTurn(){
+  micBtn.disabled = true;
+  const { text, missionComplete } = await callSarah();
+  if (text) {
+    addTurn('sarah', text);
+    state.history.push({ role: 'sarah', text });
+    bumpTurn();
+    await speak(text);
+  }
+  if (missionComplete) {
+    setStatus('Mission complete. Generating debrief…', 'thinking');
+    await new Promise(r => setTimeout(r, 600));
+    runDebrief();
+    return;
+  }
+  if (!state.ended) {
+    micBtn.disabled = false;
+    setStatus('Your turn. Tap the mic to speak.');
+  }
+}
+
+// ----- User turn (recognition) -----
+let interimId = null;
+let recognitionFinalText = '';
+
+async function startListening(){
+  if (state.recognizing || state.speaking || state.thinking || state.ended) {
+    console.log('startListening blocked:', { recognizing: state.recognizing, speaking: state.speaking, thinking: state.thinking, ended: state.ended });
+    return;
+  }
+  if (!state.recognition) {
+    setStatus('Reconhecimento de voz indisponível.', 'error');
+    return;
+  }
+
+  if (!state.micPermissionRequested) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(t => t.stop());
+      state.micPermissionRequested = true;
+    } catch (err) {
+      setStatus('Microfone bloqueado. Verifique permissões.', 'error');
+      console.error('Mic permission error:', err);
+      return;
+    }
+  }
+
+  recognitionFinalText = '';
+  interimId = 'interim_' + Date.now();
+  addTurn('user', '…', { id: interimId, interim: true });
+
+  state.recognizing = true;
+  micBtn.classList.add('recording');
+  micLabel.textContent = 'Tap to send';
+  setSpeaker('user');
+  setStatus('Listening in English… speak now.');
+
+  try {
+    state.recognition.start();
+  } catch(e){
+    console.error('recognition.start failed:', e);
+    state.recognizing = false;
+    micBtn.classList.remove('recording');
+    micLabel.textContent = 'Click to Speak';
+    setStatus('Erro ao iniciar mic: ' + e.message, 'error');
+    if (interimId) {
+      const el = document.getElementById(interimId);
+      if (el) el.remove();
+      interimId = null;
+    }
+  }
+}
+
+function stopListening(){
+  if (!state.recognizing) return;
+  try { state.recognition.stop(); } catch(e){ console.warn('stop failed:', e); }
+}
+
+function cancelListening(){
+  if (!state.recognizing) return;
+  try { state.recognition.abort(); } catch(e){}
+  state.recognizing = false;
+  micBtn.classList.remove('recording');
+  micLabel.textContent = 'Click to Speak';
+  setSpeaker(null);
+  if (interimId) {
+    const el = document.getElementById(interimId);
+    if (el) el.remove();
+    interimId = null;
+  }
+  setStatus('Cancelled.');
+}
+
+if (state.recognition) {
+  state.recognition.onresult = (evt) => {
+    let interim = '';
+    let final = recognitionFinalText;
+    for (let i = evt.resultIndex; i < evt.results.length; i++){
+      const r = evt.results[i];
+      if (r.isFinal) final += r[0].transcript + ' ';
+      else interim += r[0].transcript;
+    }
+    recognitionFinalText = final;
+    if (interimId) updateInterim(interimId, (final + interim).trim() || '…');
+  };
+  state.recognition.onerror = (evt) => {
+    console.error('recognition error:', evt.error);
+    state.recognizing = false;
+    micBtn.classList.remove('recording');
+    micLabel.textContent = 'Click to Speak';
+    setSpeaker(null);
+    if (evt.error === 'no-speech') {
+      setStatus('Não ouvi nada. Toque o mic e fale.', 'error');
+      if (interimId) {
+        const el = document.getElementById(interimId);
+        if (el) el.remove();
+        interimId = null;
+      }
+    } else if (evt.error === 'not-allowed') {
+      setStatus('Microfone bloqueado.', 'error');
+    } else if (evt.error === 'audio-capture') {
+      setStatus('Não consegui acessar o microfone.', 'error');
+    } else if (evt.error === 'network') {
+      setStatus('Erro de rede no reconhecimento.', 'error');
+    } else {
+      setStatus('Erro: ' + evt.error, 'error');
+    }
+  };
+  state.recognition.onend = async () => {
+    state.recognizing = false;
+    micBtn.classList.remove('recording');
+    micLabel.textContent = 'Click to Speak';
+    const finalText = recognitionFinalText.trim();
+    if (!finalText) {
+      if (interimId) {
+        const el = document.getElementById(interimId);
+        if (el) el.remove();
+        interimId = null;
+      }
+      setSpeaker(null);
+      return;
+    }
+    if (interimId) {
+      finalizeInterim(interimId, finalText);
+      interimId = null;
+    }
+    state.history.push({ role: 'user', text: finalText });
+    bumpTurn();
+    setSpeaker(null);
+    await sarahTurn();
+  };
+}
+
+// ----- Mic toggle -----
+micBtn.addEventListener('click', (e) => {
+  e.preventDefault();
+  if (micBtn.disabled) return;
+  if (state.recognizing) stopListening();
+  else startListening();
+});
+
+// ----- Start mission -----
+startBtn.addEventListener('click', async () => {
+  if (!state.apiKey) {
+    setupOverlay.classList.remove('hidden');
+    return;
+  }
+  startBtn.style.display = 'none';
+  micBtn.style.display = 'flex';
+  endBtn.disabled = false;
+  setStatus('Preparing voice…', 'thinking');
+  await ensureVoicesReady();
+  if (state.selectedVoice) console.log('Voice:', state.selectedVoice.name, state.selectedVoice.lang);
+  setStatus('Sarah is approaching…', 'thinking');
+  await new Promise(r => setTimeout(r, 500));
+  await sarahTurn();
+});
+
+// ----- End / Debrief -----
+endBtn.addEventListener('click', () => {
+  if (state.history.length < 2) {
+    setStatus('A conversa precisa ter pelo menos uma troca.', 'error');
+    return;
+  }
+  runDebrief();
+});
+
+async function runDebrief(){
+  state.ended = true;
+  micBtn.disabled = true;
+  endBtn.disabled = true;
+  if (TTS) { try { TTS.cancel(); } catch(e){} }
+  setStatus('Analyzing the conversation…', 'thinking');
+
+  const transcript = state.history.map(t =>
+    `${t.role === 'sarah' ? 'Sarah' : 'User'}: ${t.text}`
+  ).join('\n');
+
+  const judgePrompt = `You are an expert executive communication coach evaluating a non-native English speaker's first-impression conversation with a senior US executive (Sarah Chen). The user is Brazilian, native Portuguese, aspiring to a Chief Data & AI Officer role.
+
+MISSION CRITERIA: ${MISSION.mission_completion}
+
+THE TRANSCRIPT:
+${transcript}
+
+Score on three dimensions, each 0-100:
+- CLARITY: Was it clear who she is, what she does, and why? Could Sarah summarize her role to a colleague after the call?
+- AUTHORITY: Did she sound like a senior leader? Confident voice, owned her achievements, no over-hedging ("I think maybe", "kind of", "just a"), specific instead of vague.
+- FLUENCY: Did the conversation flow naturally in English? Reasonable grammar, vocabulary range, responsive to Sarah's questions, not awkward pauses or breakdowns.
+
+Scoring labels: Tiro (0-49) = recruta, fundação ainda frágil; Proficiens (50-79) = competente, em evolução; Peritus (80-100) = sênior, autoridade clara.
+
+Be honest, not generous. She is preparing for CDAO-level rooms. Vague praise harms her.
+
+Return strict JSON matching the schema. Strengths, improvements and next_step MUST be in PORTUGUESE (pt-BR). Verdict in PORTUGUESE.`;
+
+  const responseSchema = {
+    type: "object",
+    properties: {
+      verdict: { type: "string" },
+      scores: {
+        type: "object",
+        properties: {
+          clarity: { type: "integer" },
+          authority: { type: "integer" },
+          fluency: { type: "integer" }
+        },
+        required: ["clarity","authority","fluency"]
+      },
+      labels: {
+        type: "object",
+        properties: {
+          clarity: { type: "string" },
+          authority: { type: "string" },
+          fluency: { type: "string" }
+        },
+        required: ["clarity","authority","fluency"]
+      },
+      strengths: { type: "array", items: { type: "string" } },
+      improvements: { type: "array", items: { type: "string" } },
+      next_step: { type: "string" }
+    },
+    required: ["verdict","scores","labels","strengths","improvements","next_step"]
+  };
+
+  const body = {
+    contents: [{ role: 'user', parts: [{ text: judgePrompt }] }],
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: responseSchema,
+      temperature: 0.4,
+      maxOutputTokens: 1500
+    }
+  };
+
+  try {
+    const url = `${GEMINI_BASE}/${GEMINI_MODEL}:generateContent`;
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": state.apiKey
+      },
+      body: JSON.stringify(body)
+    });
+    if (!resp.ok) {
+      const errText = await resp.text();
+      throw new Error('API ' + resp.status + ' — ' + errText.slice(0,200));
+    }
+    const data = await resp.json();
+    const text = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
+    const debrief = JSON.parse(text);
+    renderDebrief(debrief);
+    setStatus('');
+  } catch (err) {
+    console.error(err);
+    setStatus('Erro no debrief: ' + err.message, 'error');
+  }
+}
+
+function renderDebrief(d){
+  $('verdict').textContent = d.verdict || '';
+  const grid = $('scoresGrid');
+  grid.innerHTML = '';
+  ['clarity','authority','fluency'].forEach(k => {
+    const labelMap = { clarity:'Clarity', authority:'Authority', fluency:'Fluency' };
+    const div = document.createElement('div');
+    div.className = 'score';
+    div.innerHTML = `
+      <div class="dim">${labelMap[k]}</div>
+      <div class="val">${d.scores[k]}<small>/100</small></div>
+      <div class="verbal">${d.labels[k]}</div>
+    `;
+    grid.appendChild(div);
+  });
+  const sUl = $('strengths'); sUl.innerHTML = '';
+  (d.strengths || []).forEach(s => {
+    const li = document.createElement('li'); li.textContent = s; sUl.appendChild(li);
+  });
+  const iUl = $('improvements'); iUl.innerHTML = '';
+  (d.improvements || []).forEach(s => {
+    const li = document.createElement('li'); li.textContent = s; iUl.appendChild(li);
+  });
+  $('nextStep').textContent = d.next_step || '';
+  $('debriefOverlay').classList.add('show');
+}
+
+$('closeBtn').addEventListener('click', () => {
+  $('debriefOverlay').classList.remove('show');
+});
+$('retryBtn').addEventListener('click', () => {
+  location.reload();
+});
+
+// Initial state
+setStatus('Ready.');
+setSpeaker(null);
+</script>
+</body>
+</html>
