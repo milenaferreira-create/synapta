@@ -771,7 +771,7 @@
       <div class="empty-state" id="emptyState">
         <div class="arrow">⌒</div>
         <h2>The room is quiet.</h2>
-        <p>Toque <b>Begin Mission</b>. A Sarah começa. Quando for sua vez, toque o mic e fale com pausas naturais. Diga <b>"Sinapta"</b> ao final para enviar.</p>
+        <p>Toque <b>Begin Mission</b>. A Sarah começa. Quando for sua vez, o microfone abre automaticamente — fale naturalmente, com pausas livres, e diga <b>"Sinapta"</b> ao final.</p>
       </div>
     </div>
 
@@ -782,11 +782,11 @@
       </button>
       <button class="mic-button" id="micBtn" disabled style="display:none;">
         <span class="mic-icon"></span>
-        <span id="micLabel">Tap to Speak</span>
+        <span id="micLabel">Send Now</span>
       </button>
       <button class="secondary-btn" id="endBtn" disabled>End & Debrief</button>
       <div class="spacer"></div>
-      <div class="hint">Toque o mic e fale livremente · Diga <b>"Sinapta"</b> ao final para enviar</div>
+      <div class="hint">Fale naturalmente · Diga <b>"Sinapta"</b> ao final · Botão envia antes do trigger</div>
     </div>
 
     <div class="status-bar" id="status"></div>
@@ -881,13 +881,13 @@ const state = {
   history: [],
   turnCount: 0,
   recognition: null,
-  recognizing: false,
   speaking: false,
   selectedVoice: null,
   voices: [],
   ended: false,
   thinking: false,
   micPermissionRequested: false,
+  userTurnFinalized: false,
 };
 
 // ----- API Key flow -----
@@ -1182,13 +1182,16 @@ async function speak(text){
 
 // ----- Sarah turn -----
 async function sarahTurn(){
-  micBtn.disabled = true;
+  // Make sure mic is closed while Sarah composes and speaks
+  micShouldListen = false;
+  safeEngineStop();
+
   const { text, missionComplete } = await callSarah();
   if (text) {
     addTurn('sarah', text);
     state.history.push({ role: 'sarah', text });
     bumpTurn();
-    await speak(text);
+    await speak(text); // sets state.speaking true/false internally
   }
   if (missionComplete) {
     setStatus('Mission complete. Generating debrief…', 'thinking');
@@ -1197,115 +1200,124 @@ async function sarahTurn(){
     return;
   }
   if (!state.ended) {
-    micBtn.disabled = false;
-    setStatus('Your turn. Tap the mic to speak.');
+    // Auto-open mic for the user's next response (Gemini Live style)
+    beginUserTurnUI();
+    setTimeout(() => startMic(), 300);
   }
 }
 
-// ----- User turn (recognition) -----
-let interimId = null;
-// Text accumulated across ALL recognition sessions in this turn (only finalized chunks)
-let consolidatedText = '';
-// Final text from the CURRENT session only (replaced on each new session)
-let currentSessionFinal = '';
-// Live interim text from current session — display only
-let currentInterim = '';
+// ----- Always-on recognition (Gemini Live style) -----
+// Model: while the mission is active, the mic is always listening.
+// We pause it only while Sarah is speaking (to avoid feedback loop).
+// User says "Sinapta" to close their turn → Sarah responds → mic reopens.
 
-// Trigger word to auto-send (case insensitive)
+let interimId = null;
+let consolidatedText = '';      // finals accumulated across restart cycles
+let currentSessionFinal = '';   // finals from the active engine session
+let currentInterim = '';        // live interim from active session
+
+// Single source of truth: is the mic SUPPOSED to be listening right now?
+// The actual engine state may lag this (during start/end handshakes).
+let micShouldListen = false;
+// Engine-level state — set by the actual onstart/onend callbacks
+let engineRunning = false;
+// Lock to prevent concurrent start() calls
+let startInFlight = false;
+
 const TRIGGER_WORD = 'sinapta';
-// Match "sinapta" with optional punctuation around it
-const TRIGGER_REGEX = /\b(sinapta|synapta|synapse|sinapse|sinapsa)\b[\s.,!?;:]*$/i;
+const TRIGGER_REGEX = /\b(sinapta|synapta|synapse|sinapse|sinapsa|sin apta)\b[\s.,!?;:]*$/i;
 
 function getCombinedText(){
-  // What the user has said so far in this turn (excluding live interim)
   return (consolidatedText + ' ' + currentSessionFinal).replace(/\s+/g, ' ').trim();
 }
-
 function getDisplayText(){
-  // What we show on screen — includes live interim
   return (getCombinedText() + ' ' + currentInterim).replace(/\s+/g, ' ').trim();
 }
-
 function detectTriggerAtEnd(text){
-  // Only fire when the trigger word is at (or near) the end — natural conversational close
   return TRIGGER_REGEX.test(text);
 }
-
 function stripTrigger(text){
-  // Remove ALL occurrences of the trigger word (in case it was repeated)
-  return text.replace(/\b(sinapta|synapta|synapse|sinapse|sinapsa)\b\.?/gi, '').replace(/\s+/g, ' ').trim();
+  return text.replace(/\b(sinapta|synapta|synapse|sinapse|sinapsa|sin apta)\b\.?/gi, '').replace(/\s+/g, ' ').trim();
 }
 
-async function startListening(){
-  if (state.recognizing || state.speaking || state.thinking || state.ended) {
-    console.log('startListening blocked:', { recognizing: state.recognizing, speaking: state.speaking, thinking: state.thinking, ended: state.ended });
-    return;
+// Safely start the engine, respecting locks and current state.
+async function safeEngineStart(){
+  if (!state.recognition) return;
+  if (engineRunning) { console.log('engine already running'); return; }
+  if (startInFlight) { console.log('start already in flight'); return; }
+  if (!micShouldListen) { console.log('start aborted: mic should not listen'); return; }
+  if (state.speaking) { console.log('start aborted: Sarah is speaking'); return; }
+
+  startInFlight = true;
+  // tiny delay lets any pending onend fire first
+  await new Promise(r => setTimeout(r, 50));
+  if (!micShouldListen) { startInFlight = false; return; }
+  try {
+    state.recognition.start();
+  } catch(e) {
+    console.warn('engine.start failed:', e.message);
+    // Most likely "already started" race — try once more after a longer wait
+    await new Promise(r => setTimeout(r, 300));
+    if (micShouldListen && !engineRunning) {
+      try {
+        state.recognition.start();
+      } catch(e2) {
+        console.error('engine.start retry failed:', e2.message);
+      }
+    }
+  } finally {
+    startInFlight = false;
   }
+}
+
+// Safely stop the engine.
+function safeEngineStop(){
+  if (!state.recognition) return;
+  if (!engineRunning) return;
+  try { state.recognition.stop(); } catch(e){ console.warn('engine.stop failed:', e); }
+}
+
+// Open a fresh user turn UI (call before user starts speaking)
+function beginUserTurnUI(){
+  consolidatedText = '';
+  currentSessionFinal = '';
+  currentInterim = '';
+  if (interimId) {
+    const old = document.getElementById(interimId);
+    if (old) old.remove();
+  }
+  interimId = 'interim_' + Date.now();
+  addTurn('user', '…', { id: interimId, interim: true });
+  setSpeaker('user');
+}
+
+// Tell the system we want to be listening
+async function startMic(){
   if (!state.recognition) {
     setStatus('Reconhecimento de voz indisponível.', 'error');
     return;
   }
-
-  // Fresh turn: clear all accumulators
-  consolidatedText = '';
-  currentSessionFinal = '';
-  currentInterim = '';
-  interimId = 'interim_' + Date.now();
-  addTurn('user', '…', { id: interimId, interim: true });
-
-  state.recognizing = true;
-  state.userIntentToStop = false;
+  micShouldListen = true;
   micBtn.classList.add('recording');
-  micLabel.textContent = 'Tap when done';
-  setSpeaker('user');
-  setStatus('Ouvindo… fale livremente. Diga "Sinapta" ao final, ou toque o mic.');
-
-  try {
-    state.recognition.start();
-  } catch(e){
-    console.error('recognition.start failed:', e);
-    state.recognizing = false;
-    micBtn.classList.remove('recording');
-    micLabel.textContent = 'Tap to Speak';
-    setStatus('Erro ao iniciar mic: ' + e.message, 'error');
-    if (interimId) {
-      const el = document.getElementById(interimId);
-      if (el) el.remove();
-      interimId = null;
-    }
-  }
+  setStatus('Ouvindo… fale livremente. Diga "Sinapta" ao final.');
+  if (!interimId) beginUserTurnUI();
+  await safeEngineStart();
 }
 
-function stopListening(){
-  if (!state.recognizing) return;
-  state.userIntentToStop = true;
-  try { state.recognition.stop(); } catch(e){ console.warn('stop failed:', e); }
-}
-
-function cancelListening(){
-  if (!state.recognizing) return;
-  state.userIntentToStop = true;
-  try { state.recognition.abort(); } catch(e){}
-  state.recognizing = false;
-  state.userIntentToStop = false;
-  consolidatedText = '';
-  currentSessionFinal = '';
-  currentInterim = '';
+// Tell the system we want to stop. Engine will close, onend won't restart.
+function stopMic(){
+  micShouldListen = false;
   micBtn.classList.remove('recording');
-  micLabel.textContent = 'Tap to Speak';
-  setSpeaker(null);
-  if (interimId) {
-    const el = document.getElementById(interimId);
-    if (el) el.remove();
-    interimId = null;
-  }
-  setStatus('Cancelled.');
+  safeEngineStop();
 }
 
 if (state.recognition) {
+  state.recognition.onstart = () => {
+    engineRunning = true;
+    console.log('engine: onstart');
+  };
+
   state.recognition.onresult = (evt) => {
-    // Rebuild this session's view from scratch — evt.results contains
-    // ALL results from current session (continuous=true accumulates them).
     let sessionFinal = '';
     let sessionInterim = '';
     for (let i = 0; i < evt.results.length; i++){
@@ -1316,125 +1328,137 @@ if (state.recognition) {
     currentSessionFinal = sessionFinal;
     currentInterim = sessionInterim;
 
-    // Update display
     const display = getDisplayText();
     if (interimId) updateInterim(interimId, display || '…');
 
-    // Trigger detection: check the combined text including interim (so user
-    // doesn't have to wait for finalization). Only fire when "sinapta" is
-    // at the END of what they've said.
+    // Trigger word detected at end of utterance — close this user turn
     if (detectTriggerAtEnd(display)) {
-      console.log('Trigger word detected at end — auto-sending');
-      state.userIntentToStop = true;
-      try { state.recognition.stop(); } catch(e){}
+      console.log('Sinapta detected — closing user turn');
+      finalizeUserTurn();
     }
   };
 
   state.recognition.onerror = (evt) => {
-    console.error('recognition error:', evt.error);
+    console.error('engine error:', evt.error);
 
-    // 'no-speech' = user paused, not fatal. Let onend auto-restart.
-    if (evt.error === 'no-speech' && state.recognizing && !state.userIntentToStop) {
-      console.log('no-speech ignored');
-      return;
-    }
-    // 'aborted' = WE called stop/abort. Not fatal.
+    // 'no-speech' is NORMAL during pauses — silently let onend restart.
+    if (evt.error === 'no-speech') return;
+    // 'aborted' = we called stop() ourselves
     if (evt.error === 'aborted') return;
 
     if (evt.error === 'not-allowed' || evt.error === 'service-not-allowed') {
       setStatus('Microfone negado. Cadeado na URL → Permissões → Microfone → Permitir.', 'error');
+      micShouldListen = false;
+      micBtn.classList.remove('recording');
     } else if (evt.error === 'audio-capture') {
       setStatus('Não consegui acessar o microfone (hardware).', 'error');
+      micShouldListen = false;
+      micBtn.classList.remove('recording');
     } else if (evt.error === 'network') {
-      setStatus('Erro de rede no reconhecimento.', 'error');
+      setStatus('Erro de rede no reconhecimento. Reabrindo…', 'error');
+      // network errors: try again
     } else {
       setStatus('Erro: ' + evt.error, 'error');
-    }
-
-    state.recognizing = false;
-    state.userIntentToStop = false;
-    micBtn.classList.remove('recording');
-    micLabel.textContent = 'Tap to Speak';
-    setSpeaker(null);
-    if (interimId && evt.error !== 'no-speech') {
-      const el = document.getElementById(interimId);
-      if (el) el.remove();
-      interimId = null;
     }
   };
 
   state.recognition.onend = async () => {
-    // BEFORE deciding what to do, MOVE this session's final text into
-    // consolidatedText. Otherwise it gets lost on restart.
+    engineRunning = false;
+    console.log('engine: onend. micShouldListen=', micShouldListen, 'speaking=', state.speaking);
+
+    // Move this session's finals into the consolidated buffer
     if (currentSessionFinal.trim()) {
       consolidatedText = (consolidatedText + ' ' + currentSessionFinal).replace(/\s+/g,' ').trim();
       currentSessionFinal = '';
       currentInterim = '';
     }
 
-    // If user didn't explicitly stop, restart the session to keep listening.
-    // Chrome on Android closes recognition on every silence gap, so this
-    // simulates a long-running mic.
-    if (state.recognizing && !state.userIntentToStop) {
-      console.log('session ended (silence) — restarting. consolidated so far:', consolidatedText);
-      setTimeout(() => {
-        if (!state.recognizing || state.userIntentToStop) return;
-        try {
-          state.recognition.start();
-        } catch(e) {
-          console.warn('restart failed, retrying:', e);
-          setTimeout(() => {
-            if (!state.recognizing || state.userIntentToStop) return;
-            try { state.recognition.start(); } catch(e2) { console.error('restart 2nd attempt failed:', e2); }
-          }, 300);
-        }
-      }, 150);
+    // If user turn was just finalized (Sinapta), the finalize function handles
+    // sending. We do NOT auto-restart here; sarahTurn() will reopen the mic.
+    if (state.userTurnFinalized) {
+      state.userTurnFinalized = false;
       return;
     }
 
-    // User stopped (tapped mic OR said trigger word) → finalize and send
-    state.recognizing = false;
-    state.userIntentToStop = false;
-    micBtn.classList.remove('recording');
-    micLabel.textContent = 'Tap to Speak';
-
-    const rawText = consolidatedText.trim();
-    const cleanText = stripTrigger(rawText);
-
-    if (!cleanText) {
-      if (interimId) {
-        const el = document.getElementById(interimId);
-        if (el) el.remove();
-        interimId = null;
-      }
-      setSpeaker(null);
-      setStatus('Nada capturado. Toque o mic e fale.');
-      consolidatedText = '';
-      return;
+    // If we still want to listen, restart after a brief pause.
+    if (micShouldListen && !state.speaking) {
+      console.log('auto-restarting engine after silence gap');
+      setTimeout(() => safeEngineStart(), 200);
     }
-    if (interimId) {
-      finalizeInterim(interimId, cleanText);
-      interimId = null;
-    }
-    state.history.push({ role: 'user', text: cleanText });
-    bumpTurn();
-    setSpeaker(null);
-
-    // Reset for next turn
-    consolidatedText = '';
-    currentSessionFinal = '';
-    currentInterim = '';
-
-    await sarahTurn();
   };
 }
 
-// ----- Mic toggle -----
+// Called when user said Sinapta or tapped the (now-removed) stop button.
+async function finalizeUserTurn(){
+  if (state.userTurnFinalized) return; // guard against double-fire
+  state.userTurnFinalized = true;
+  micShouldListen = false;
+  micBtn.classList.remove('recording');
+  safeEngineStop();
+
+  // Wait briefly for onend to flush the last finals into consolidatedText
+  await new Promise(r => setTimeout(r, 250));
+
+  const rawText = (consolidatedText + ' ' + currentSessionFinal).replace(/\s+/g,' ').trim();
+  const cleanText = stripTrigger(rawText);
+
+  if (!cleanText) {
+    if (interimId) {
+      const el = document.getElementById(interimId);
+      if (el) el.remove();
+      interimId = null;
+    }
+    setSpeaker(null);
+    setStatus('Não capturei nada. Vou ouvir de novo…');
+    consolidatedText = '';
+    currentSessionFinal = '';
+    currentInterim = '';
+    // reopen mic for another try
+    setTimeout(() => startMic(), 600);
+    return;
+  }
+
+  if (interimId) {
+    finalizeInterim(interimId, cleanText);
+    interimId = null;
+  }
+  state.history.push({ role: 'user', text: cleanText });
+  bumpTurn();
+  setSpeaker(null);
+
+  // Reset for next turn
+  consolidatedText = '';
+  currentSessionFinal = '';
+  currentInterim = '';
+
+  await sarahTurn();
+}
+
+function cancelListening(){
+  micShouldListen = false;
+  state.userTurnFinalized = true;
+  consolidatedText = '';
+  currentSessionFinal = '';
+  currentInterim = '';
+  safeEngineStop();
+  micBtn.classList.remove('recording');
+  setSpeaker(null);
+  if (interimId) {
+    const el = document.getElementById(interimId);
+    if (el) el.remove();
+    interimId = null;
+  }
+}
+
+// ----- Mic button is now "Send Now" — manual override of the Sinapta trigger -----
+// Used if the user wants to send before saying the trigger word.
 micBtn.addEventListener('click', (e) => {
   e.preventDefault();
   if (micBtn.disabled) return;
-  if (state.recognizing) stopListening();
-  else startListening();
+  if (micShouldListen) {
+    console.log('Manual send triggered');
+    finalizeUserTurn();
+  }
 });
 
 // ----- Start mission -----
@@ -1465,7 +1489,10 @@ endBtn.addEventListener('click', () => {
 
 async function runDebrief(){
   state.ended = true;
+  micShouldListen = false;
+  safeEngineStop();
   micBtn.disabled = true;
+  micBtn.classList.remove('recording');
   endBtn.disabled = true;
   if (TTS) { try { TTS.cancel(); } catch(e){} }
   setStatus('Analyzing the conversation…', 'thinking');
