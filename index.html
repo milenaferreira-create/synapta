@@ -900,7 +900,7 @@ function loadKey(){
     setupOverlay.classList.remove('hidden');
   }
 }
-saveKeyBtn.addEventListener('click', () => {
+saveKeyBtn.addEventListener('click', async () => {
   const k = apiKeyInput.value.trim();
   if (!k || !k.startsWith('AIza')) {
     apiKeyInput.style.borderColor = 'var(--danger)';
@@ -908,9 +908,54 @@ saveKeyBtn.addEventListener('click', () => {
     apiKeyInput.value = '';
     return;
   }
-  try { localStorage.setItem(STORAGE_KEY, k); } catch(e){}
-  state.apiKey = k;
-  setupOverlay.classList.add('hidden');
+
+  // Test the key with a tiny ping before saving
+  saveKeyBtn.disabled = true;
+  const originalLabel = saveKeyBtn.innerHTML;
+  saveKeyBtn.innerHTML = '<span class="mic-icon"></span>Testando…';
+
+  try {
+    const testResp = await fetch(`${GEMINI_BASE}/${GEMINI_MODEL}:generateContent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": k },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: 'Say "ok" only.' }] }],
+        generationConfig: { maxOutputTokens: 10, temperature: 0 }
+      })
+    });
+    if (!testResp.ok) {
+      const errText = await testResp.text();
+      console.error('Test failed:', testResp.status, errText);
+      apiKeyInput.style.borderColor = 'var(--danger)';
+      let msg = `Chave rejeitada (HTTP ${testResp.status})`;
+      if (errText.includes('API_KEY_INVALID') || errText.includes('API key not valid')) {
+        msg = 'Chave inválida. Confira no Google AI Studio.';
+      } else if (errText.includes('PERMISSION_DENIED') || errText.includes('referer')) {
+        msg = 'Chave restrita por domínio. Em AI Studio, remova as restrições HTTP referrer.';
+      } else if (testResp.status === 429) {
+        msg = 'Cota esgotada. Tente em alguns minutos ou crie outra chave.';
+      }
+      apiKeyInput.placeholder = msg;
+      apiKeyInput.value = '';
+      saveKeyBtn.disabled = false;
+      saveKeyBtn.innerHTML = originalLabel;
+      return;
+    }
+    // Success — save and proceed
+    try { localStorage.setItem(STORAGE_KEY, k); } catch(e){}
+    state.apiKey = k;
+    setupOverlay.classList.add('hidden');
+    saveKeyBtn.disabled = false;
+    saveKeyBtn.innerHTML = originalLabel;
+  } catch (err) {
+    // Network / CORS / DNS failure
+    console.error('Network test failed:', err);
+    apiKeyInput.style.borderColor = 'var(--danger)';
+    apiKeyInput.placeholder = `Sem conexão com Gemini: ${err.message}`;
+    apiKeyInput.value = '';
+    saveKeyBtn.disabled = false;
+    saveKeyBtn.innerHTML = originalLabel;
+  }
 });
 apiKeyInput.addEventListener('keypress', e => {
   if (e.key === 'Enter') saveKeyBtn.click();
@@ -1153,9 +1198,17 @@ CRITICAL OUTPUT RULES:
   } catch (err) {
     console.error('callSarah failed:', err);
     state.thinking = false;
-    setStatus('Erro Gemini: ' + err.message, 'error');
-    // Surface the real error in the chat so user knows something failed
-    return { text: "[Erro ao chamar Sarah: " + err.message + ". Veja o console e a chave API. Toque End & Debrief para encerrar.]", missionComplete: false };
+
+    // Distinguish network failure (TypeError: Failed to fetch) from other errors
+    let userMsg;
+    if (err.name === 'TypeError' && /fetch/i.test(err.message)) {
+      userMsg = '[Erro de rede ao chamar Gemini. Causas prováveis: (1) chave com restrição de domínio HTTP referrer no Google AI Studio — remova; (2) sem internet; (3) firewall bloqueando generativelanguage.googleapis.com. Toque End & Debrief.]';
+      setStatus('Falha de rede com Gemini. Verifique a chave e a conexão.', 'error');
+    } else {
+      userMsg = '[Erro Gemini: ' + err.message + '. Veja o console. Toque End & Debrief.]';
+      setStatus('Erro Gemini: ' + err.message, 'error');
+    }
+    return { text: userMsg, missionComplete: false };
   }
 }
 
