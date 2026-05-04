@@ -1347,16 +1347,18 @@ if (state.recognition) {
     if (evt.error === 'aborted') return;
 
     if (evt.error === 'not-allowed' || evt.error === 'service-not-allowed') {
-      setStatus('Microfone negado. Cadeado na URL → Permissões → Microfone → Permitir.', 'error');
+      setStatus('Microfone bloqueado pelo Chrome. Toque "Send Now" para reabrir →', 'error');
       micShouldListen = false;
       micBtn.classList.remove('recording');
+      // Repurpose the mic button as a "retry" — clicking it counts as a user gesture
+      micLabel.textContent = 'Retry Mic';
+      micBtn.dataset.mode = 'retry';
     } else if (evt.error === 'audio-capture') {
       setStatus('Não consegui acessar o microfone (hardware).', 'error');
       micShouldListen = false;
       micBtn.classList.remove('recording');
     } else if (evt.error === 'network') {
       setStatus('Erro de rede no reconhecimento. Reabrindo…', 'error');
-      // network errors: try again
     } else {
       setStatus('Erro: ' + evt.error, 'error');
     }
@@ -1450,11 +1452,24 @@ function cancelListening(){
   }
 }
 
-// ----- Mic button is now "Send Now" — manual override of the Sinapta trigger -----
-// Used if the user wants to send before saying the trigger word.
-micBtn.addEventListener('click', (e) => {
+// ----- Mic button: dual-mode -----
+//   "Send Now" — manually finalize the user turn before saying Sinapta
+//   "Retry Mic" — re-open the mic after a permission failure (counts as user gesture)
+micBtn.addEventListener('click', async (e) => {
   e.preventDefault();
   if (micBtn.disabled) return;
+
+  if (micBtn.dataset.mode === 'retry') {
+    // Reset to listening mode using a direct user gesture
+    console.log('Manual retry triggered');
+    micBtn.dataset.mode = '';
+    micLabel.textContent = 'Send Now';
+    setStatus('Reabrindo microfone…');
+    beginUserTurnUI();
+    await startMic();
+    return;
+  }
+
   if (micShouldListen) {
     console.log('Manual send triggered');
     finalizeUserTurn();
@@ -1467,6 +1482,24 @@ startBtn.addEventListener('click', async () => {
     setupOverlay.classList.remove('hidden');
     return;
   }
+
+  // CRITICAL: Request mic permission HERE, inside the user gesture.
+  // Chrome on Android silently blocks programmatic mic access if no explicit
+  // user gesture has ever requested permission on this page. We must trigger
+  // the permission prompt now — even though we don't immediately use the stream.
+  setStatus('Solicitando microfone…', 'thinking');
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // Permission granted. Release the stream — SpeechRecognition will get its own.
+    stream.getTracks().forEach(t => t.stop());
+    state.micPermissionRequested = true;
+    console.log('Mic permission granted');
+  } catch (err) {
+    console.error('Mic permission denied:', err);
+    setStatus('Microfone negado. Permita o acesso e recarregue a página.', 'error');
+    return;
+  }
+
   startBtn.style.display = 'none';
   micBtn.style.display = 'flex';
   endBtn.disabled = false;
